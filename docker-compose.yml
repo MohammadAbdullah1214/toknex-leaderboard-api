@@ -1,7 +1,15 @@
 services:
   leaderboard-api:
     build: .
-    env_file: .env
+    env_file:
+      - .env
     ports:
-      - "3001:3001"
+      - "127.0.0.1:4011:3001"
     restart: unless-stopped
+    networks:
+      - leaderboard-network
+
+networks:
+  leaderboard-network:
+    external: true
+    name: toknexvaults_leaderboard_default
