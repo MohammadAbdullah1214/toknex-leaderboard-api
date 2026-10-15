@@ -1,0 +1,7 @@
+services:
+  leaderboard-api:
+    build: .
+    env_file: .env
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
