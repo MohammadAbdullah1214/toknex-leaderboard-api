@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import { timingSafeEqual } from 'node:crypto';
 import pg from 'pg';
 
 const { Pool } = pg;
@@ -7,6 +8,13 @@ const port = Number.parseInt(process.env.PORT ?? '3001', 10);
 const host = process.env.HOST ?? '0.0.0.0';
 const allowedOrigin = process.env.CORS_ORIGIN ?? '*';
 const source = process.env.LEADERBOARD_SOURCE ?? 'leaderboard';
+const apiAccessToken = process.env.API_ACCESS_TOKEN;
+
+// This API is server-to-server only. Refuse to start unless its shared secret
+// is configured, rather than accidentally publishing depositor data.
+if (!apiAccessToken) {
+  throw new Error('API_ACCESS_TOKEN must be configured.');
+}
 
 // Source is an SQL identifier rather than a query parameter, so validate each
 // schema/table segment before quoting it.
@@ -27,6 +35,19 @@ const pool = new Pool({
 const app = Fastify({ logger: true });
 
 await app.register(cors, { origin: allowedOrigin });
+
+function hasValidAccessToken(authorization) {
+  if (!authorization?.startsWith('Bearer ')) return false;
+
+  const supplied = Buffer.from(authorization.slice(7));
+  const expected = Buffer.from(apiAccessToken);
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
+async function requireApiToken(request, reply) {
+  if (hasValidAccessToken(request.headers.authorization)) return;
+  return reply.code(401).send({ error: 'Unauthorized' });
+}
 
 const leaderboardSchema = {
   querystring: {
@@ -93,8 +114,8 @@ app.get('/health', async () => {
   return { status: 'ok' };
 });
 
-app.get('/v1/leaderboard', { schema: leaderboardSchema }, leaderboardHandler);
-app.get('/leaderboard', { schema: leaderboardSchema }, leaderboardHandler);
+app.get('/v1/leaderboard', { schema: leaderboardSchema, preHandler: requireApiToken }, leaderboardHandler);
+app.get('/leaderboard', { schema: leaderboardSchema, preHandler: requireApiToken }, leaderboardHandler);
 
 app.addHook('onClose', async () => pool.end());
 

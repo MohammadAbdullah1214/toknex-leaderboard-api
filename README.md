@@ -12,6 +12,15 @@ wallet text
 total_deposited_usd numeric
 ```
 
+## Access control
+
+The leaderboard routes require an `Authorization: Bearer <API_ACCESS_TOKEN>`
+header. Set a long, random `API_ACCESS_TOKEN` in this service's `.env`, then
+set the identical value as `BACKEND_API_TOKEN` in the Next.js frontend's
+server-only `.env`. Do not use a `NEXT_PUBLIC_` prefix for either setting.
+
+`GET /health` remains unauthenticated and exposes no depositor data.
+
 For good read performance, create an index on the source table:
 
 ```sql
